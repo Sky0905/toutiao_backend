@@ -1,4 +1,7 @@
 .venv/
+venv/
+env/
+
 .idea/
 __pycache__/
 *.py[cod]
@@ -9,3 +12,10 @@ __pycache__/
 data/
 *.db
 *.sqlite3
+
+*.log
+logs/
+.coverage
+htmlcov/
+.DS_Store
+Thumbs.db

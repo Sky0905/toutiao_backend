@@ -26,7 +26,7 @@ toutiao_backend/
 
 ### PyCharm
 
-项目已经配置好 `FastAPI` 运行配置：
+项目已经配置好 `FastAPI` 运行配置：  测试
 
 1. 用 PyCharm 打开 `D:\codex\toutiao_backend`
 2. 确认右下角 Python 解释器选择项目里的 `.venv`
