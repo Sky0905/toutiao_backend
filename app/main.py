@@ -1,18 +1,36 @@
 from contextlib import asynccontextmanager
+import logging
 from pathlib import Path
+from time import perf_counter
+from uuid import uuid4
 
-from fastapi import FastAPI
-from fastapi import Depends
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from fastapi.exceptions import RequestValidationError
+from fastapi import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import create_tables, engine
 from app.dependencies import db_session
+from app.exceptions.handlers import (
+    http_exception_handler,
+    integrity_exception_handler,
+    sqlalchemy_exception_handler,
+    unhandled_exception_handler,
+    validation_exception_handler,
+)
 from app.routers import auth, favorite, history, news, users
+from app.schemas.common import ApiResponse
+from app.utils.app_logging import setup_logging
+from app.utils.responses import success
+
+
+setup_logging()
+logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -41,33 +59,61 @@ app.add_middleware(
 )
 
 
-@app.get("/health", tags=["system"])
-def health_check() -> dict[str, str]:
-    # 用于部署检查和确认服务是否正常运行。
-    return {"status": "ok", "environment": settings.app_env}
-
-
-@app.get("/health/db", tags=["system"])
-async def database_health_check(db: AsyncSession = Depends(db_session)):
-    """执行真实数据库查询，确认 MySQL 连接和会话都可用。"""
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    """记录每次请求的请求 ID、状态码和耗时。"""
+    request_id = request.headers.get("X-Request-ID", str(uuid4()))
+    started_at = perf_counter()
     try:
-        await db.execute(text("SELECT 1"))
-        return {
-            "status": "ok",
-            "database": "mysql",
-            "message": "Database connection is healthy",
-        }
-    except Exception as exc:
-        # 不把数据库账号、密码或底层连接细节返回给客户端。
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "error",
-                "database": "mysql",
-                "message": "Database connection failed",
-                "error_type": type(exc).__name__,
-            },
+        response = await call_next(request)
+    except Exception:
+        logger.exception(
+            "Request failed: request_id=%s method=%s path=%s",
+            request_id,
+            request.method,
+            request.url.path,
         )
+        raise
+
+    duration_ms = (perf_counter() - started_at) * 1000
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "Request completed: request_id=%s method=%s path=%s status=%s duration_ms=%.2f",
+        request_id,
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+    )
+    return response
+
+
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(IntegrityError, integrity_exception_handler)
+app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
+
+
+@app.get("/health", response_model=ApiResponse[dict[str, str]], tags=["system"])
+def health_check() -> ApiResponse[dict[str, str]]:
+    # 用于部署检查和确认服务是否正常运行。
+    return success(
+        data={"status": "ok", "environment": settings.app_env},
+        message="服务运行正常",
+    )
+
+
+@app.get("/health/db", response_model=ApiResponse[dict[str, str]], tags=["system"])
+async def database_health_check(
+    db: AsyncSession = Depends(db_session),
+) -> ApiResponse[dict[str, str]]:
+    """执行真实数据库查询，确认 MySQL 连接和会话都可用。"""
+    await db.execute(text("SELECT 1"))
+    return success(
+        data={"status": "ok", "database": "mysql"},
+        message="数据库连接正常",
+    )
 
 
 # 按业务模块注册路由，统一挂载在 /api/v1 下。

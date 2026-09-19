@@ -21,6 +21,7 @@ toutiao_backend/
 │   ├── config.js     # 前端接口地址配置
 │   ├── index.html
 │   └── styles.css
+├── logs/              # 运行时日志目录，不提交到 Git
 ├── tests/
 ├── .env.example
 ├── pyproject.toml
@@ -193,6 +194,57 @@ GET /api/v1/auth/me
 - `frontend/styles.css`：修改页面样式
 
 页面会把登录成功后的 JWT 保存在浏览器 `localStorage`，请求当前用户时自动携带 Bearer Token。
+
+## 统一响应格式
+
+接口成功时统一返回：
+
+```json
+{
+  "code": 0,
+  "message": "登录成功",
+  "data": {}
+}
+```
+
+参数校验失败时返回：
+
+```json
+{
+  "code": 42200,
+  "message": "请求参数校验失败",
+  "data": [
+    {
+      "field": "body.email",
+      "message": "value is not a valid email address"
+    }
+  ]
+}
+```
+
+项目保留真实 HTTP 状态码，例如 `401`、`404`、`409`、`422`、`500`，
+同时在 JSON 中使用 `code` 和 `message` 方便前端统一处理。
+
+删除接口使用 `204 No Content`，按照 HTTP 规范不返回 JSON 正文。
+
+## 日志
+
+日志由 [app/utils/app_logging.py](app/utils/app_logging.py) 统一配置：
+
+- 控制台输出启动和请求日志
+- 文件日志保存到 `logs/app.log`
+- 单个日志文件达到 5 MB 后自动轮转
+- 最多保留 5 个历史日志文件
+- 请求日志包含请求 ID、请求方法、路径、状态码和耗时
+- 未知异常会记录完整堆栈，但不会把堆栈返回给前端
+
+全局异常处理器位于 `app/exceptions/handlers.py`，统一处理：
+
+- `HTTPException`
+- 请求参数校验异常
+- 数据库完整性异常
+- SQLAlchemy 数据库异常
+- 未知服务器异常
 
 ## 基础接口
 
