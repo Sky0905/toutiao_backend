@@ -10,6 +10,10 @@ class Settings(BaseSettings):     #BaseSettings 会自动去环境变量和 .env
     # 项目固定使用 MySQL 异步连接，驱动必须是 aiomysql。
     database_url: str
     api_v1_prefix: str
+    # JWT 签名密钥必须放在 .env 中，不能使用示例值部署。
+    jwt_secret_key: str
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
 
     model_config = SettingsConfigDict(
         env_file=".env",

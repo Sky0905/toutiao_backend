@@ -11,7 +11,8 @@ class UserCreate(BaseModel):
     # EmailStr 会检查邮箱格式，例如 test@example.com。
     email: EmailStr
     # 密码长度限制为 6 到 128 个字符。
-    password: str = Field(min_length=6, max_length=128)
+    # bcrypt 最多处理 72 字节，限制长度避免静默截断。
+    password: str = Field(min_length=6, max_length=72)
 
 
 class UserRead(BaseModel):

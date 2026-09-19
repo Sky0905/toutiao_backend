@@ -9,7 +9,7 @@ from app.database import Base
 class News(Base):
     __tablename__ = "news"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True,autoincrement=True)
     title: Mapped[str] = mapped_column(String(200), index=True)
     summary: Mapped[str | None] = mapped_column(String(500), nullable=True)
     content: Mapped[str] = mapped_column(Text)

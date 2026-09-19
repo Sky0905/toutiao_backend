@@ -20,7 +20,7 @@ async def read_news(
     category: str | None = None,
     page: Page = 1,
     page_size: PageSize = 20,
-    db: AsyncSession = Depends(db_session),
+    db: AsyncSession = Depends(db_session),  #自动创建一个新的数据库会话
 ):
     # category 可选，不传时返回全部分类的新闻。
     return await news_crud.list_news(

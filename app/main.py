@@ -1,16 +1,18 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi import Depends
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import create_tables, engine
 from app.dependencies import db_session
-from app.routers import favorite, history, news, users
-
+from app.routers import auth, favorite, history, news, users
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -28,6 +30,14 @@ app = FastAPI(
     version="0.1.0",
     debug=settings.debug,
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:8000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -62,6 +72,11 @@ async def database_health_check(db: AsyncSession = Depends(db_session)):
 
 # 按业务模块注册路由，统一挂载在 /api/v1 下。
 app.include_router(users.router, prefix=settings.api_v1_prefix)
+app.include_router(auth.router, prefix=settings.api_v1_prefix)
 app.include_router(news.router, prefix=settings.api_v1_prefix)
 app.include_router(favorite.router, prefix=settings.api_v1_prefix)
 app.include_router(history.router, prefix=settings.api_v1_prefix)
+
+# 将 frontend 目录作为静态网站挂载，启动后直接访问 http://127.0.0.1:8000/。
+frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")

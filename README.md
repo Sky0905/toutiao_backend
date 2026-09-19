@@ -16,6 +16,11 @@ toutiao_backend/
 │   ├── database.py    # 数据库连接和会话
 │   ├── dependencies.py
 │   └── main.py
+├── frontend/         # 可直接由 FastAPI 托管的登录注册页面
+│   ├── app.js        # 页面交互和接口调用
+│   ├── config.js     # 前端接口地址配置
+│   ├── index.html
+│   └── styles.css
 ├── tests/
 ├── .env.example
 ├── pyproject.toml
@@ -100,6 +105,9 @@ APP_ENV=development
 DEBUG=true
 DATABASE_URL=mysql+aiomysql://root:你的密码@127.0.0.1:3306/toutiao?charset=utf8mb4
 API_V1_PREFIX=/api/v1
+JWT_SECRET_KEY=请替换为随机长字符串
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
 ```
 
 不要把真实密码提交到 Git。`.env` 已经被 `.gitignore` 忽略。
@@ -122,6 +130,70 @@ python run.py
 应用启动时会通过异步引擎自动创建 `users`、`news`、`favorites`、`histories` 四张表。
 代码只负责建表，不负责创建 MySQL 数据库本身。
 
+## 用户认证
+
+### 注册
+
+```http
+POST /api/v1/auth/register
+Content-Type: application/json
+```
+
+请求体：
+
+```json
+{
+  "username": "demo",
+  "email": "demo@example.com",
+  "password": "123456"
+}
+```
+
+### 登录
+
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
+```
+
+登录成功后返回：
+
+```json
+{
+  "access_token": "JWT_TOKEN",
+  "token_type": "bearer"
+}
+```
+
+调用受保护接口时，在请求头中携带：
+
+```http
+Authorization: Bearer JWT_TOKEN
+```
+
+当前用户接口：
+
+```http
+GET /api/v1/auth/me
+```
+
+密码使用 bcrypt 哈希保存，JWT 使用 HS256 签名。JWT 密钥只放在 `.env`，不要提交到 GitHub。
+
+## 前端页面
+
+启动后直接访问：
+
+<http://127.0.0.1:8000/>
+
+前端文件位于 `frontend/`：
+
+- `frontend/config.js`：修改接口前缀和接口地址
+- `frontend/app.js`：修改登录注册交互
+- `frontend/index.html`：修改页面结构
+- `frontend/styles.css`：修改页面样式
+
+页面会把登录成功后的 JWT 保存在浏览器 `localStorage`，请求当前用户时自动携带 Bearer Token。
+
 ## 基础接口
 
 - `POST /api/v1/users`
@@ -134,3 +206,6 @@ python run.py
 - `POST /api/v1/history`
 - `GET /api/v1/history/{user_id}`
 - `DELETE /api/v1/history/{user_id}`
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `GET /api/v1/auth/me`

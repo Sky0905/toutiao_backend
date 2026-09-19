@@ -3,11 +3,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import users as user_crud
-from app.dependencies import db_session
+from app.dependencies import db_session, get_current_user
+from app.models.user import User
 from app.schemas.user import UserCreate, UserRead
 from app.utils.pagination import Page, PageSize, offset
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/me", response_model=UserRead)
+async def read_my_profile(current_user: User = Depends(get_current_user)):
+    """示例受保护接口：只有携带有效 JWT 才能访问。"""
+    return current_user
 
 
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
