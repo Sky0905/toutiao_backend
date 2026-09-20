@@ -109,6 +109,8 @@ API_V1_PREFIX=/api/v1
 JWT_SECRET_KEY=请替换为随机长字符串
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
+REDIS_URL=redis://127.0.0.1:6379/0
+REDIS_CACHE_TTL_SECONDS=300
 ```
 
 不要把真实密码提交到 Git。`.env` 已经被 `.gitignore` 忽略。
@@ -130,6 +132,48 @@ python run.py
 
 应用启动时会通过异步引擎自动创建 `users`、`news`、`favorites`、`histories` 四张表。
 代码只负责建表，不负责创建 MySQL 数据库本身。
+
+## Redis 缓存
+
+项目使用 `redis.asyncio` 连接 Redis。你的 Redis 3.0.504 版本较老，
+因此项目固定使用 RESP2 协议，并建议 Python 依赖使用 `redis>=4.6,<5.0`。
+配置项位于 `.env`：
+
+```env
+REDIS_URL=redis://127.0.0.1:6379/0
+REDIS_CACHE_TTL_SECONDS=300
+```
+
+健康检查：
+
+```http
+GET /health/redis
+```
+
+新闻列表接口已接入缓存：
+
+```http
+GET /api/v1/news?page=1&page_size=20
+```
+
+处理流程：
+
+```text
+先查 Redis
+Redis 命中 -> 直接返回缓存
+Redis 未命中 -> 查询 MySQL -> 写入 Redis -> 返回结果
+```
+
+新增新闻后会自动清理：
+
+```text
+news:list:*
+```
+
+相关代码：
+
+- `app/cache/redis.py`：Redis 连接、关闭、PING、按模式删除缓存
+- `app/routers/news.py`：新闻列表缓存读写和新增新闻后清理缓存
 
 ## 用户认证
 

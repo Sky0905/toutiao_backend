@@ -14,6 +14,9 @@ class Settings(BaseSettings):     #BaseSettings 会自动去环境变量和 .env
     jwt_secret_key: str
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
+    # Redis 缓存配置，默认连接本机 6379 端口的第 0 个数据库。
+    redis_url: str = "redis://127.0.0.1:6379/0"
+    redis_cache_ttl_seconds: int = 300
 
     model_config = SettingsConfigDict(
         env_file=".env",

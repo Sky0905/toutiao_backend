@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from starlette.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.cache.redis import close_redis, ping_redis
 from app.database import create_tables, engine
 from app.dependencies import db_session
 from app.exceptions.handlers import (
@@ -40,6 +41,7 @@ async def lifespan(_: FastAPI):
         yield
     finally:
         # 应用停止时释放异步连接池。
+        await close_redis()
         await engine.dispose()
 
 
@@ -113,6 +115,24 @@ async def database_health_check(
     return success(
         data={"status": "ok", "database": "mysql"},
         message="数据库连接正常",
+    )
+
+
+@app.get("/health/redis", response_model=ApiResponse[dict[str, str]], tags=["system"])
+async def redis_health_check() -> ApiResponse[dict[str, str]]:
+    """执行 Redis PING，确认 Redis 服务可用。"""
+    try:
+        await ping_redis()
+    except Exception as exc:
+        logger.exception("Redis health check failed: error_type=%s", type(exc).__name__)
+        raise HTTPException(
+            status_code=503,
+            detail="Redis 连接失败",
+        ) from exc
+
+    return success(
+        data={"status": "ok", "database": "redis"},
+        message="Redis 连接正常",
     )
 
 
